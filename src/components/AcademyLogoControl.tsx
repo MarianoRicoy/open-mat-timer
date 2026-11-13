@@ -30,9 +30,11 @@ export function AcademyLogoControl() {
         Logo en TV
       </h2>
       <p className="mt-2 text-sm text-zinc-500">
-        Subí el logo de la academia para la vista TV. No afecta el cronómetro en
-        curso.
-        {isRemoteMode ? " Se sincroniza con la sala vinculada." : ""}
+        Subí el logo de la academia para la vista TV (hasta ~25 % de alto y 55 %
+        de ancho del área 16:9). No afecta el cronómetro en curso.
+        {isRemoteMode ? " Se sincroniza con la sala vinculada." : ""} Si el
+        archivo tiene mucho margen transparente, puede verse chico hasta que la
+        app lo compensa automáticamente.
       </p>
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">

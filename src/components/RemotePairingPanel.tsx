@@ -7,9 +7,13 @@ import { SessionQrCode } from "@/components/SessionQrCode";
 
 interface RemotePairingPanelProps {
   variant: "control" | "tv";
+  layout?: "default" | "compact";
 }
 
-export function RemotePairingPanel({ variant }: RemotePairingPanelProps) {
+export function RemotePairingPanel({
+  variant,
+  layout = "default",
+}: RemotePairingPanelProps) {
   const {
     roomCode,
     isRemoteMode,
@@ -117,6 +121,27 @@ export function RemotePairingPanel({ variant }: RemotePairingPanelProps) {
         <p className="mt-3 text-xs text-zinc-500">
           Sin vincular, el cronómetro funciona solo en este dispositivo (offline).
         </p>
+      </section>
+    );
+  }
+
+  if (layout === "compact") {
+    return (
+      <section className="rounded-xl border border-zinc-800/90 bg-zinc-950/90 p-2.5 shadow-lg shadow-black/40 backdrop-blur-sm">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-amber-500/90">
+          Vincular celular
+        </p>
+        <p className="mt-1 font-mono text-lg font-bold tracking-[0.25em] text-white">
+          {formattedCode || "······"}
+        </p>
+        {pairingUrl && (
+          <div className="mt-2 flex justify-center">
+            <SessionQrCode value={pairingUrl} size={96} />
+          </div>
+        )}
+        {remoteError && (
+          <p className="mt-1 text-[10px] text-red-400">{remoteError}</p>
+        )}
       </section>
     );
   }

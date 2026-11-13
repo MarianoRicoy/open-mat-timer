@@ -72,7 +72,9 @@ npm run build
 
 ### Logo en TV
 
-Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP (hasta 400 KB). Con sala vinculada, la TV actualiza el logo al instante y lo conserva al recargar (`GET /api/sessions/:code`). Cambiar el logo **no** afecta el estado del reloj.
+Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP (hasta 400 KB). En la vista TV el logo va **centrado arriba del reloj** (zona ~25 % alto × ~55 % ancho del marco 16:9, `object-contain`). Con sala vinculada, la TV actualiza al instante y conserva al recargar. Cambiar el logo **no** afecta el reloj.
+
+**Verificación vista TV (navegador Mac):** composición revisada a **1280×720** y **1920×1080** (listo, ronda, descanso) con logo cuadrado y horizontal de prueba; sincronización del logo con dos pestañas. **Pendiente:** validación en **TV física** y celular real.
 
 ### Ejemplo de prueba manual
 

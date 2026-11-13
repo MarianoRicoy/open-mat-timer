@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.tv-stage {
+  aspect-ratio: 16 / 9;
+  width: min(100%, calc((100dvh - 3.75rem) * 16 / 9));
+  height: min(calc(100dvh - 3.75rem), calc(100vw * 9 / 16));
+  max-height: calc(100dvh - 3.75rem);
+  margin-inline: auto;
+}
