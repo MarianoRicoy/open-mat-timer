@@ -129,11 +129,11 @@ npm run build:all      # ambos
 
 ```bash
 npm run mobile:install
-npm run mobile:build
-cd mobile && npx cap sync
-npx cap open ios       # requiere Xcode + CocoaPods
-npx cap open android   # requiere Android Studio
+./scripts/prepare-ios.sh   # iPhone: build + cap sync + pods (requiere Xcode)
+cd mobile && npx cap open ios
 ```
+
+Guías: [docs/ios-xcode-signing.md](docs/ios-xcode-signing.md) · [docs/android-apk.md](docs/android-apk.md) · [docs/mobile-install.md](docs/mobile-install.md)
 
 Sin red: tras instalar, la app **no llama a internet** para el cronómetro. Motor y presets en `src/lib/` (compartidos con la web).
 

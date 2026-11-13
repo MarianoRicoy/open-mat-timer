@@ -9,14 +9,17 @@ Fecha de esta entrega: entorno de desarrollo del agente (sin dispositivo físico
 | `npm run test` (motor + sesión web) | OK (10 tests) |
 | `npm run build` (Next.js web) | OK |
 | `npm run mobile:build` (Vite + `tsc`) | OK |
-| `npx cap add android` + `cap sync` | OK en entorno del agente |
-| `npx cap add ios` | **Atascó: CocoaPods no instalado** en la Mac del agente — ver paso abajo |
+| `npx cap add android` + `cap sync` | OK (scaffold local; carpeta en `.gitignore`) |
+| `npx cap add ios` | Scaffold **generado**; `pod install` requiere **Xcode.app** (`xcode-select` → Xcode, no solo CLI) |
+| APK `assembleDebug` | **No generado aquí** — sin JDK en la Mac del agente; ver `docs/android-apk.md` |
+| CocoaPods | Instalable con `brew install cocoapods` |
 
-### Si iOS no genera la carpeta `mobile/ios`
+### Si iOS no abre en Xcode
 
-1. Instalá CocoaPods: `brew install cocoapods` o [guía Capacitor](https://capacitorjs.com/docs/getting-started/environment-setup)
-2. `cd mobile && npx cap add ios && npx cap sync`
-3. Abrí con `npx cap open ios`
+1. Instalá **Xcode** (App Store) y `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+2. `./scripts/prepare-ios.sh` o `cd mobile && npx cap sync ios`
+3. Firma: [ios-xcode-signing.md](./ios-xcode-signing.md)
+4. `cd mobile && npx cap open ios`
 
 ## Qué verificar vos en dispositivo
 
