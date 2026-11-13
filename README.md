@@ -20,12 +20,14 @@ Esta app es **web**: no se abre sola al hacer doble clic en una carpeta. Tenés 
 ```bash
 cd "/Users/marianoricoy/Desktop/PROYECTOS/Open Mat Timer"
 npm install
-npm run dev
+npm run dev -- --hostname 0.0.0.0
 ```
 
-Luego abrí **manualmente** [http://localhost:3000](http://localhost:3000) (Safari, Chrome, etc.).
+Luego abrí **http://localhost:3000** en el celular o **http://&lt;IP-de-tu-Mac&gt;:3000** desde la TV (misma Wi‑Fi).
 
-En macOS, para que intente abrir el navegador cuando el servidor esté listo:
+> Usá `--hostname 0.0.0.0` para que otros dispositivos en la red local puedan conectar. **No hace falta internet**: el cronómetro local funciona sin vincular; el control remoto solo usa tu red y este servidor.
+
+En macOS:
 
 ```bash
 npm run dev:open
@@ -45,19 +47,40 @@ npm run build
 
 1. En **/** (panel de control): elegí un **preset** Guetho-style o editá rondas, duración y descanso.
 2. Antes de iniciar se muestra la **duración total** de la sesión.
-3. Iniciá la sesión desde el celular y abrí **Vista TV** (`/tv`) en la pantalla del gimnasio; el tiempo y la fase se mantienen al cambiar de ruta sin recargar.
-4. En TV usá **Pantalla completa**. Sonidos de inicio/fin de ronda se silencian con **Sonido on/off** (la pausa no reproduce el inicio otra vez).
+3. En la TV, abrí **Vista TV** (`/tv`). Se crea una **sala** con código de 6 letras y un **QR**.
+4. En el celular, escaneá el QR o ingresá el mismo código en **Control remoto** (misma red Wi‑Fi).
+5. Desde el celular podés **iniciar, pausar, reanudar y reiniciar**; la TV refleja el mismo estado (fuente de verdad en el servidor, motor de tiempo existente).
+6. Si **recargás la TV**, al volver con `?room=CODIGO` (o el código guardado en la sesión del navegador) se **recupera** la sesión en curso.
+
+### Vincular TV y celular (control remoto)
+
+| Paso | TV / proyector | Celular |
+|------|----------------|---------|
+| 1 | Abrí `http://<IP>:3000/tv` | — |
+| 2 | Copiá el código o mostrá el QR | Escaneá QR o abrí el enlace `/?room=CODIGO` |
+| 3 | Solo muestra el cronómetro (opcional: pantalla completa) | Configurá presets y usá los botones de control |
+| 4 | Recargá la página si hace falta: misma sala en la URL | Mantené la misma sala vinculada |
+
+**Sin vincular:** el panel funciona como cronómetro **local** en un solo dispositivo (sin llamadas al servidor).
+
+**Con vincular:** hace falta que ambos dispositivos alcancen el mismo `npm run dev` / servidor en la red local. No usamos servicios en la nube.
+
+### Verificación del control remoto
+
+- Verificado manualmente con **dos pestañas** del mismo navegador (vista TV + panel vinculado): inicio, pausa y recarga de la TV con `?room=CODIGO`.
+- **Pendiente:** prueba con **TV física** y **celular real** en la misma red Wi‑Fi.
+
+### Ejemplo de prueba manual
+
+Tres rondas de 10 segundos con descanso de 5 segundos → tiempo total **00:40**.
 
 ## Rutas
 
 | Ruta | Uso |
 |------|-----|
-| `/` | Presets, configuración táctil, controles |
-| `/tv` | Display grande 16:9 para TV |
-
-### Ejemplo de prueba manual
-
-Tres rondas de 10 segundos con descanso de 5 segundos → tiempo total **00:40**.
+| `/` | Presets, configuración táctil, control remoto |
+| `/tv` | Display grande 16:9 para TV + código / QR |
+| `GET/PATCH /api/sessions/:code` | Estado y comandos sincronizados |
 
 ## Stack
 

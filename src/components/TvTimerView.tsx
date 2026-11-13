@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { useTimerContext } from "@/contexts/TimerProvider";
+import { RemotePairingPanel } from "@/components/RemotePairingPanel";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { formatDurationMs } from "@/lib/timer";
 
@@ -27,8 +28,9 @@ function phaseTitle(
 
 export function TvTimerView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { config, snapshot } = useTimerContext();
+  const { config, snapshot, roomCode } = useTimerContext();
   const { isFullscreen, toggle } = useFullscreen<HTMLDivElement>();
+  const controlHref = roomCode ? `/?room=${roomCode}` : "/";
 
   const displayTime =
     snapshot.status === "idle"
@@ -57,7 +59,7 @@ export function TvTimerView() {
 
       <header className="relative z-10 flex items-center justify-between gap-3 px-4 py-3 sm:px-8 sm:py-5">
         <Link
-          href="/"
+          href={controlHref}
           className="pointer-events-auto min-h-10 rounded-full border border-zinc-700/80 bg-zinc-950/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-300 transition hover:border-zinc-500 hover:text-white sm:text-sm"
         >
           Control
@@ -75,6 +77,7 @@ export function TvTimerView() {
       </header>
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-16 pt-4 sm:px-10">
+        {!isFullscreen && <RemotePairingPanel variant="tv" />}
         <div className="flex aspect-video w-full max-w-[1600px] flex-col items-center justify-center rounded-2xl border border-zinc-900/80 bg-zinc-950/40 px-4 py-8 sm:px-12 sm:py-10">
           <p
             className={`text-[clamp(1.25rem,3.5vw,2.5rem)] font-bold uppercase tracking-[0.35em] ${accent}`}

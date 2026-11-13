@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTimerContext } from "@/contexts/TimerProvider";
+import { RemotePairingPanel } from "@/components/RemotePairingPanel";
 import { computeTotalDurationMs, formatDurationMs } from "@/lib/timer";
 
 function ConfigField({
@@ -51,9 +52,11 @@ export function ControlTimerView() {
     resume,
     reset,
     toggleSoundsMuted,
+    roomCode,
   } = useTimerContext();
 
   const totalDurationMs = computeTotalDurationMs(config);
+  const tvHref = roomCode ? `/tv?room=${roomCode}` : "/tv";
 
   const phaseLabel =
     snapshot.status === "completed"
@@ -84,12 +87,14 @@ export function ControlTimerView() {
           </p>
         </div>
         <Link
-          href="/tv"
+          href={tvHref}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-zinc-600 bg-zinc-900 px-5 text-sm font-semibold text-zinc-100 transition hover:border-amber-500/60 hover:text-amber-300"
         >
           Vista TV
         </Link>
       </header>
+
+      <RemotePairingPanel variant="control" />
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 sm:p-5">
         <div className="mb-3 flex items-center justify-between gap-3">

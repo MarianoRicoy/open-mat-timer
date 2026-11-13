@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   createContext,
   useCallback,
   useContext,
@@ -24,7 +25,10 @@ import {
   type TimerState,
 } from "@/lib/timer";
 import { TRAINING_PRESETS, type TrainingPreset } from "@/lib/presets";
+import { normalizeRoomCode } from "@/lib/remote/session-store";
+import type { SessionPayload } from "@/lib/remote/types";
 import { playRoundEndSound, playRoundStartSound } from "@/lib/sounds";
+import { useRoomCode } from "@/hooks/useRoomCode";
 
 const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
   rounds: 5,
@@ -33,6 +37,7 @@ const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
 };
 
 const SOUNDS_MUTED_KEY = "open-mat-timer:sounds-muted";
+const REMOTE_POLL_MS = 400;
 
 function getPhaseSignature(snapshot: TimerSnapshot): string {
   if (snapshot.status === "idle") {
@@ -57,6 +62,10 @@ interface TimerContextValue {
   soundsMuted: boolean;
   activePresetId: string | null;
   presets: TrainingPreset[];
+  roomCode: string | null;
+  isRemoteMode: boolean;
+  remoteConnected: boolean;
+  remoteError: string | null;
   patchConfig: (partial: Partial<SessionConfig>) => void;
   applyPreset: (preset: TrainingPreset) => void;
   start: () => void;
@@ -64,11 +73,17 @@ interface TimerContextValue {
   resume: () => void;
   reset: () => void;
   toggleSoundsMuted: () => void;
+  joinRoom: (code: string) => Promise<boolean>;
+  leaveRoom: () => void;
+  ensureHostRoom: () => Promise<string | null>;
 }
 
 const TimerContext = createContext<TimerContextValue | null>(null);
 
-export function TimerProvider({ children }: { children: ReactNode }) {
+function TimerProviderInner({ children }: { children: ReactNode }) {
+  const { roomCode, setRoomCode } = useRoomCode();
+  const isRemoteMode = Boolean(roomCode);
+
   const [config, setConfig] = useState<SessionConfig>(DEFAULT_CONFIG);
   const [state, setState] = useState<TimerState>(() => createTimerState(DEFAULT_CONFIG));
   const [nowMs, setNowMs] = useState(0);
@@ -76,7 +91,86 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     TRAINING_PRESETS[3]?.id ?? null,
   );
   const [soundsMuted, setSoundsMuted] = useState(false);
+  const [remoteConnected, setRemoteConnected] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
   const previousPhaseRef = useRef<string>("idle");
+
+  const syncFromPayload = useCallback((payload: SessionPayload) => {
+    setConfig(payload.config);
+    setState(payload.state);
+    setActivePresetId(payload.activePresetId);
+    setNowMs(payload.serverNowMs);
+    setRemoteConnected(true);
+    setRemoteError(null);
+  }, []);
+
+  const fetchRemoteSession = useCallback(async () => {
+    if (!roomCode) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/sessions/${roomCode}`, { cache: "no-store" });
+      if (!response.ok) {
+        setRemoteConnected(false);
+        setRemoteError(
+          response.status === 404 ? "Sala no encontrada" : "Sin conexión con la sala",
+        );
+        return;
+      }
+
+      const payload = (await response.json()) as SessionPayload;
+      syncFromPayload(payload);
+    } catch {
+      setRemoteConnected(false);
+      setRemoteError("Sin conexión con la sala");
+    }
+  }, [roomCode, syncFromPayload]);
+
+  useEffect(() => {
+    if (!roomCode) {
+      return;
+    }
+
+    const initialTimeout = window.setTimeout(() => {
+      void fetchRemoteSession();
+    }, 0);
+    const intervalId = window.setInterval(() => {
+      void fetchRemoteSession();
+    }, REMOTE_POLL_MS);
+
+    return () => {
+      window.clearTimeout(initialTimeout);
+      window.clearInterval(intervalId);
+    };
+  }, [roomCode, fetchRemoteSession]);
+
+  const sendRemoteCommand = useCallback(
+    async (body: Record<string, unknown>) => {
+      if (!roomCode) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/sessions/${roomCode}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          setRemoteError("No se pudo enviar el comando");
+          return;
+        }
+
+        const payload = (await response.json()) as SessionPayload;
+        syncFromPayload(payload);
+      } catch {
+        setRemoteError("No se pudo enviar el comando");
+      }
+    },
+    [roomCode, syncFromPayload],
+  );
 
   useEffect(() => {
     if (state.status !== "running") {
@@ -89,17 +183,19 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       const currentNow = Date.now();
       setNowMs(currentNow);
 
-      setState((currentState) => {
-        if (currentState.status !== "running") {
+      if (!isRemoteMode) {
+        setState((currentState) => {
+          if (currentState.status !== "running") {
+            return currentState;
+          }
+
+          if (isSessionComplete(currentState, currentNow)) {
+            return completeTimer(currentState);
+          }
+
           return currentState;
-        }
-
-        if (isSessionComplete(currentState, currentNow)) {
-          return completeTimer(currentState);
-        }
-
-        return currentState;
-      });
+        });
+      }
 
       frameId = requestAnimationFrame(tick);
     };
@@ -109,12 +205,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [state.status]);
+  }, [state.status, isRemoteMode]);
 
-  const snapshot = useMemo(
-    () => getTimerSnapshot(state, nowMs),
-    [state, nowMs],
-  );
+  const snapshot = useMemo(() => {
+    const effectiveNow = nowMs > 0 ? nowMs : state.sessionStartMs ?? 0;
+    return getTimerSnapshot({ ...state, config }, effectiveNow);
+  }, [state, config, nowMs]);
 
   const isEditable = state.status === "idle";
 
@@ -155,49 +251,86 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }, [snapshot, soundsMuted]);
 
-  const patchConfig = useCallback((partial: Partial<SessionConfig>) => {
-    setConfig((previous) => {
-      const next = { ...previous, ...partial };
-      setState((current) => updateTimerConfig(current, next));
-      setActivePresetId(null);
-      return next;
-    });
-  }, []);
-
-  const applyPreset = useCallback((preset: TrainingPreset) => {
-    setState((current) => {
-      if (current.status !== "idle") {
-        return current;
+  const patchConfig = useCallback(
+    (partial: Partial<SessionConfig>) => {
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "patchConfig", partial });
+        return;
       }
 
-      setConfig(preset.config);
-      setActivePresetId(preset.id);
-      return createTimerState(preset.config);
-    });
-  }, []);
+      setConfig((previous) => {
+        const next = { ...previous, ...partial };
+        setState((current) => updateTimerConfig(current, next));
+        setActivePresetId(null);
+        return next;
+      });
+    },
+    [isRemoteMode, sendRemoteCommand],
+  );
+
+  const applyPreset = useCallback(
+    (preset: TrainingPreset) => {
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "applyPreset", presetId: preset.id });
+        return;
+      }
+
+      setState((current) => {
+        if (current.status !== "idle") {
+          return current;
+        }
+
+        setConfig(preset.config);
+        setActivePresetId(preset.id);
+        return createTimerState(preset.config);
+      });
+    },
+    [isRemoteMode, sendRemoteCommand],
+  );
 
   const start = useCallback(() => {
+    if (isRemoteMode) {
+      void sendRemoteCommand({ type: "start" });
+      return;
+    }
+
     const currentNow = Date.now();
     setNowMs(currentNow);
     setState((current) => startTimer(current, currentNow));
-  }, []);
+  }, [isRemoteMode, sendRemoteCommand]);
 
   const pause = useCallback(() => {
+    if (isRemoteMode) {
+      void sendRemoteCommand({ type: "pause" });
+      return;
+    }
+
     const currentNow = Date.now();
     setNowMs(currentNow);
     setState((current) => pauseTimer(current, currentNow));
-  }, []);
+  }, [isRemoteMode, sendRemoteCommand]);
 
   const resume = useCallback(() => {
+    if (isRemoteMode) {
+      void sendRemoteCommand({ type: "resume" });
+      return;
+    }
+
     start();
-  }, [start]);
+  }, [isRemoteMode, sendRemoteCommand, start]);
 
   const reset = useCallback(() => {
+    if (isRemoteMode) {
+      void sendRemoteCommand({ type: "reset" });
+      previousPhaseRef.current = "idle";
+      return;
+    }
+
     const currentNow = Date.now();
     setNowMs(currentNow);
     setState(resetTimer(config));
     previousPhaseRef.current = "idle";
-  }, [config]);
+  }, [config, isRemoteMode, sendRemoteCommand]);
 
   const toggleSoundsMuted = useCallback(() => {
     setSoundsMuted((previous) => {
@@ -211,6 +344,60 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const joinRoom = useCallback(
+    async (code: string) => {
+      const normalized = normalizeRoomCode(code);
+      if (!normalized) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(`/api/sessions/${normalized}`, { cache: "no-store" });
+        if (!response.ok) {
+          setRemoteError("Código inválido o sala expirada");
+          return false;
+        }
+
+        const payload = (await response.json()) as SessionPayload;
+        setRoomCode(normalized);
+        syncFromPayload(payload);
+        return true;
+      } catch {
+        setRemoteError("No se pudo vincular la sala");
+        return false;
+      }
+    },
+    [setRoomCode, syncFromPayload],
+  );
+
+  const leaveRoom = useCallback(() => {
+    setRoomCode(null);
+    setRemoteConnected(false);
+    setRemoteError(null);
+  }, [setRoomCode]);
+
+  const ensureHostRoom = useCallback(async () => {
+    if (roomCode) {
+      return roomCode;
+    }
+
+    try {
+      const response = await fetch("/api/sessions", { method: "POST" });
+      if (!response.ok) {
+        setRemoteError("No se pudo crear la sala");
+        return null;
+      }
+
+      const payload = (await response.json()) as SessionPayload;
+      setRoomCode(payload.code);
+      syncFromPayload(payload);
+      return payload.code;
+    } catch {
+      setRemoteError("No se pudo crear la sala");
+      return null;
+    }
+  }, [roomCode, setRoomCode, syncFromPayload]);
+
   const value = useMemo(
     (): TimerContextValue => ({
       config,
@@ -219,6 +406,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       soundsMuted,
       activePresetId,
       presets: TRAINING_PRESETS,
+      roomCode,
+      isRemoteMode,
+      remoteConnected,
+      remoteError,
       patchConfig,
       applyPreset,
       start,
@@ -226,6 +417,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       resume,
       reset,
       toggleSoundsMuted,
+      joinRoom,
+      leaveRoom,
+      ensureHostRoom,
     }),
     [
       config,
@@ -233,6 +427,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       isEditable,
       soundsMuted,
       activePresetId,
+      roomCode,
+      isRemoteMode,
+      remoteConnected,
+      remoteError,
       patchConfig,
       applyPreset,
       start,
@@ -240,10 +438,21 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       resume,
       reset,
       toggleSoundsMuted,
+      joinRoom,
+      leaveRoom,
+      ensureHostRoom,
     ],
   );
 
   return <TimerContext.Provider value={value}>{children}</TimerContext.Provider>;
+}
+
+export function TimerProvider({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <TimerProviderInner>{children}</TimerProviderInner>
+    </Suspense>
+  );
 }
 
 export function useTimerContext(): TimerContextValue {
