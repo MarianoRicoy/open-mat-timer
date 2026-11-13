@@ -1,51 +1,113 @@
 # Open Mat Timer
 
-Cronómetro web gratuito para academias de jiujitsu y MMA: configurá cantidad de rondas, duración de cada ronda y descanso entre ellas. El tiempo restante se calcula a partir del tiempo transcurrido real, sin acumular error por los intervalos del navegador.
+Cronómetro por rondas para academias de jiujitsu y MMA: el coach configura en el **celular**; la **TV** muestra solo el reloj, la fase, el número de ronda y el logo del equipo.
 
-> **Estado: en desarrollo (pre‑v1).** El flujo principal funciona en red local, pero **todavía no es la versión definitiva**. Usalo en el tatami con precaución y esperá cambios.
+---
+
+## Visión (producto final)
+
+| Qué | Dónde |
+|-----|--------|
+| Configuración, presets, logo, controles (iniciar / pausar / reiniciar) | **App iPhone y Android** (App Store / Play Store) |
+| Pantalla grande de entrenamiento | **TV** (reloj + `RONDA` o `DESCANSO` + `n / total` + logo) |
+| Entrenamiento sin TV | **Solo el celular**, sin internet |
+
+El uso normal en el tatami **no** debe depender de una Mac o PC encendida.
+
+**Este repositorio no es esa app todavía.** Es un **prototipo web** que sirve para probar el motor, el diseño del panel y la vista TV en la red local. La hoja de ruta hacia apps nativas y TV sin PC está en [`docs/product-roadmap.md`](docs/product-roadmap.md).
+
+---
+
+## Qué es hoy (realidad del repo)
+
+- Aplicación **Next.js** que corrés con Node en un equipo (`npm run dev` o `npm run start`).
+- **Motor de tiempo** en `src/lib/timer/`: basado en timestamps reales (sin deriva por `setInterval`).
+- **Panel** en `/` y **vista TV** en `/tv` (marco 16:9, logo con zoom, sonidos).
+- Dos modos:
+  - **Local:** un solo navegador, sin servidor (ideal para probar el cronómetro en el celular **sin** vincular TV).
+  - **Remoto LAN:** el celular y la TV se vinculan con un código de 6 letras; la **sesión vive en la memoria del servidor Node** en el equipo donde corre Next (hoy, en la práctica, la Mac).
+
+```text
+Hoy (prototipo)          Objetivo (apps)
+─────────────────        ─────────────────
+Mac/PC + Node ───────►   Celular = “servidor” de la sesión
+    ▲                    TV = display (Cast / receiver)
+    │                    Sin PC en el tatami
+Celular + TV (browser)
+```
+
+> **Estado: en desarrollo (pre‑v1).** Funciona para demos en Wi‑Fi local; **no** es la versión de tiendas ni el flujo definitivo sin computadora.
+
+---
+
+## Internet, sesión y celular bloqueado
+
+| Escenario | ¿Internet? | ¿Dónde vive el cronómetro? | Celular bloqueado / Wi‑Fi cae |
+|-----------|------------|-----------------------------|-------------------------------|
+| **Modo local** (sin `?room=`) | No | Solo en ese navegador | Puede pausarse según el navegador; no hay TV |
+| **Modo remoto web actual** | No (solo Wi‑Fi local) | En el **servidor Node** (memoria); TV y celular consultan/actualizan vía API | Si **Mac/servidor** sigue y la TV hace poll, la TV sigue; el celular al volver puede reconectar. Si **reiniciás el servidor**, la sala muere |
+| **Producto final (app nativa)** | No para el timer; Cast puede usar internet solo para emparejar | En el **teléfono**; TV solo dibuja estado | App en segundo plano + receptor TV con reloj derivado del mismo motor (ver roadmap) |
+| **Duplicar pantalla / AirPlay espejo** | No | En el celular | TV congela si el SO pausa la app o el enlace |
+
+Detalle de **Chromecast vs AirPlay vs duplicar** y primera prueba con Cast: [`docs/product-roadmap.md`](docs/product-roadmap.md).
+
+---
+
+## Camino más corto a apps en tiendas (resumen)
+
+1. Reutilizar **`src/lib/timer`**, presets, logo y componentes de control (extraerlos de Next a un paquete o SPA).
+2. Envolver la UI móvil con **Capacitor** (menos reescritura que React Native puro).
+3. Sesión y comandos **en el dispositivo del coach**, no en una Mac.
+4. TV: **Chromecast Custom Web Receiver** (vista tipo `/tv`) alimentado por mensajes desde la app; alternativa transitoria = navegador de la TV apuntando a una URL (sigue haciendo falta un servidor hasta tener app).
+5. Mantener **este repo web** para desarrollo, tests y capturas de referencia (`docs/verification/`).
+
+---
+
+## Prueba punta a punta (hardware) — pendiente
+
+Objetivo: **iniciar en el celular**, ver **reloj + logo en la TV**, **pausar y reanudar** desde el celular.
+
+**Pasos con el prototipo actual** (requiere **un equipo con Node** en la misma Wi‑Fi, usualmente la Mac):
+
+1. `npm run build && npm run start -- --hostname 0.0.0.0` en la Mac; anotar IP (`ipconfig getifaddr en0`).
+2. TV (navegador o Google TV): abrir `http://<IP>:3000/tv` → código / QR.
+3. Celular: `http://<IP>:3000/?room=CODIGO` → cargar logo y zoom → **Iniciar**.
+4. Comprobar `RONDA n / total`, pausa y reanudación en la TV en menos de ~3 s.
+
+**Chromecast solo con “Cast tab”** no permite controlar y mostrar a la vez con una sola pestaña; sirve como prueba visual, no como flujo final. Pasos y límites: [`docs/product-roadmap.md`](docs/product-roadmap.md).
+
+---
 
 ## Qué falta para la versión definitiva
 
-- **Pruebas en hardware real:** TV o proyector + celular en la misma Wi‑Fi (control remoto, logo, zoom y recarga de la vista TV).
-- **Despliegue estable:** hoy el uso previsto es `npm run dev` en una Mac/PC de la academia; falta un camino claro de **producción** (`npm run build` + `npm start` o hosting) con sesiones que sobrevivan reinicios del servidor.
-- **Persistencia de salas:** las sesiones remotas viven **solo en memoria** del proceso Node; si reiniciás el servidor, los códigos de sala dejan de existir.
-- **Pulido de UX:** presets, textos, sonidos y ajustes finos de la vista TV según feedback del tatami.
-- **Documentación operativa:** guía corta “día de entrenamiento” (IP fija, qué hacer si se cae el Wi‑Fi, etc.).
+- Apps **iOS / Android** distribuibles; arquitectura **sin PC** en el tatami.
+- TV como **display dedicado** (Cast receiver o equivalente), no espejo del celular.
+- Prueba física documentada (TV + celular real).
+- Persistencia de sesión en el **móvil** (no memoria volátil del `next start` en una Mac).
+- Guía operativa del día de entrenamiento.
 
-Lo verificado hasta ahora es mayormente en **navegador de escritorio** (dos pestañas panel + TV). Las capturas de referencia de la vista TV están en `docs/verification/`.
+---
 
-## Requisitos
+## Requisitos (prototipo web)
 
-- Node.js 20 o superior
+- Node.js 20+
 - npm
 
-## Instalación
+## Instalación y desarrollo
 
 ```bash
-npm install
-```
-
-## Desarrollo
-
-Esta app es **web**: no se abre sola al hacer doble clic en una carpeta. Tenés que levantar el servidor y entrar con el navegador.
-
-```bash
-cd "/Users/marianoricoy/Desktop/PROYECTOS/Open Mat Timer"
 npm install
 npm run dev -- --hostname 0.0.0.0
 ```
 
-Luego abrí **http://localhost:3000** en el celular o **http://&lt;IP-de-tu-Mac&gt;:3000** desde la TV (misma Wi‑Fi).
+- Panel: **http://localhost:3000**
+- TV: **http://localhost:3000/tv** (misma red: `http://<IP-de-tu-Mac>:3000`)
 
-> Usá `--hostname 0.0.0.0` para que otros dispositivos en la red local puedan conectar. **No hace falta internet**: el cronómetro local funciona sin vincular; el control remoto solo usa tu red y este servidor.
+Usá `--hostname 0.0.0.0` para que el celular y la TV en la misma Wi‑Fi entren al servidor de desarrollo.
 
-En macOS:
+En macOS: `npm run dev:open`
 
-```bash
-npm run dev:open
-```
-
-> **Nota:** `npm start` es solo para producción; antes hay que correr `npm run build`. Para probar en tu Mac usá `npm run dev`.
+Producción del prototipo: `npm run build` y luego `npm run start -- --hostname 0.0.0.0`.
 
 ## Comprobaciones
 
@@ -55,58 +117,38 @@ npm run test
 npm run build
 ```
 
-## Uso
+## Uso del prototipo web
 
-1. En **/** (panel de control): elegí un **preset** Guetho-style o editá rondas, duración y descanso.
-2. Antes de iniciar se muestra la **duración total** de la sesión.
-3. En la TV, abrí **Vista TV** (`/tv`). Se crea una **sala** con código de 6 letras y un **QR**.
-4. En el celular, escaneá el QR o ingresá el mismo código en **Control remoto** (misma red Wi‑Fi).
-5. Desde el celular podés **iniciar, pausar, reanudar y reiniciar**; la TV refleja el mismo estado (fuente de verdad en el servidor, motor de tiempo existente).
-6. Si **recargás la TV**, al volver con `?room=CODIGO` (o el código guardado en la sesión del navegador) se **recupera** la sesión en curso.
-
-### Vincular TV y celular (control remoto)
-
-| Paso | TV / proyector | Celular |
-|------|----------------|---------|
-| 1 | Abrí `http://<IP>:3000/tv` | — |
-| 2 | Copiá el código o mostrá el QR | Escaneá QR o abrí el enlace `/?room=CODIGO` |
-| 3 | Solo muestra el cronómetro (opcional: pantalla completa) | Configurá presets y usá los botones de control |
-| 4 | Recargá la página si hace falta: misma sala en la URL | Mantené la misma sala vinculada |
-
-**Sin vincular:** el panel funciona como cronómetro **local** en un solo dispositivo (sin llamadas al servidor).
-
-**Con vincular:** hace falta que ambos dispositivos alcancen el mismo `npm run dev` / servidor en la red local. No usamos servicios en la nube.
-
-### Verificación del control remoto
-
-- Verificado manualmente con **dos pestañas** del mismo navegador (vista TV + panel vinculado): inicio, pausa, recarga de la TV con `?room=CODIGO`, y logo (cargar / reemplazar / quitar) sin pausar ni reiniciar el cronómetro.
-- **Pendiente:** prueba con **TV física** y **celular real** en la misma red Wi‑Fi (incluido el flujo de logo).
+1. **/** — presets, rondas/minutos/descanso, logo, control remoto.
+2. **/tv** — display 16:9, código y QR para vincular.
+3. Sin `?room=` — cronómetro **solo en ese dispositivo** (sin API).
+4. Con `?room=CODIGO` — panel y TV sincronizados vía API en el servidor Node.
 
 ### Logo en TV
 
-Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP/SVG (se comprime en el cliente). En la vista TV el logo va **arriba del bloque reloj** (~38 % alto × ~78 % ancho del marco 16:9). Usá el **slider Zoom en TV** si el archivo trae margen negro opaco o transparente; se sincroniza con la sala. La línea de estado es `RONDA n / total` o `DESCANSO n / total` justo encima del cronómetro. Cambiar el logo **no** afecta el reloj.
+Subí imagen en el panel; ajustá **Zoom en TV** si el archivo tiene márgenes negros o transparentes. En la TV: logo arriba, línea `RONDA n / total` o `DESCANSO n / total` sobre el reloj.
 
-**Verificación vista TV (navegador Mac):** composición revisada a **1280×720** y **1920×1080** (listo, ronda, descanso) con logo cuadrado y horizontal de prueba; sincronización del logo con dos pestañas. **Pendiente:** validación en **TV física** y celular real.
+### Ejemplo rápido de tiempos
 
-### Ejemplo de prueba manual
-
-Tres rondas de 10 segundos con descanso de 5 segundos → tiempo total **00:40**.
+3 rondas × 10 s + 5 s descanso → total **00:40**.
 
 ## Rutas
 
 | Ruta | Uso |
 |------|-----|
-| `/` | Presets, configuración táctil, control remoto |
-| `/tv` | Display grande 16:9 para TV + código / QR |
-| `GET/PATCH /api/sessions/:code` | Estado y comandos sincronizados |
+| `/` | Panel de control |
+| `/tv` | Vista TV + sala / QR |
+| `POST /api/sessions` | Crear sala |
+| `GET/PATCH /api/sessions/:code` | Estado y comandos |
 
 ## Stack
 
-- Next.js 16 (App Router)
-- React 19
-- TypeScript (modo estricto)
-- Tailwind CSS 4
+- Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Vitest
 
 ## Licencia
 
 Uso libre para academias y entrenadores.
+
+## Repositorio
+
+Código en GitHub: [github.com/MarianoRicoy/open-mat-timer](https://github.com/MarianoRicoy/open-mat-timer) (el README en remoto puede ir detrás de commits locales hasta que hagas `git push`).
