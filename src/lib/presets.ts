@@ -1,0 +1,47 @@
+import type { SessionConfig } from "@/lib/timer";
+
+export interface TrainingPreset {
+  id: string;
+  name: string;
+  subtitle: string;
+  config: SessionConfig;
+}
+
+export const TRAINING_PRESETS: TrainingPreset[] = [
+  {
+    id: "guetho-5",
+    name: "5 min",
+    subtitle: "1 ronda continua",
+    config: { rounds: 1, roundDurationSec: 300, restDurationSec: 0 },
+  },
+  {
+    id: "guetho-6",
+    name: "6 min",
+    subtitle: "1 ronda continua",
+    config: { rounds: 1, roundDurationSec: 360, restDurationSec: 0 },
+  },
+  {
+    id: "guetho-12",
+    name: "12 min",
+    subtitle: "1 ronda continua",
+    config: { rounds: 1, roundDurationSec: 720, restDurationSec: 0 },
+  },
+  {
+    id: "open-mat-5x5",
+    name: "Open mat",
+    subtitle: "5 rondas · 5 min · 1 min desc",
+    config: { rounds: 5, roundDurationSec: 300, restDurationSec: 60 },
+  },
+  {
+    id: "comp-3x5",
+    name: "Comp",
+    subtitle: "3 rondas · 5 min · 2 min desc",
+    config: { rounds: 3, roundDurationSec: 300, restDurationSec: 120 },
+  },
+  {
+    id: "drill-10x2",
+    name: "Drills",
+    subtitle: "10 rondas · 2 min · 30 s desc",
+    config: { rounds: 10, roundDurationSec: 120, restDurationSec: 30 },
+  },
+];

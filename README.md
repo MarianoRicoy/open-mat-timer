@@ -15,11 +15,23 @@ npm install
 
 ## Desarrollo
 
+Esta app es **web**: no se abre sola al hacer doble clic en una carpeta. Tenés que levantar el servidor y entrar con el navegador.
+
 ```bash
+cd "/Users/marianoricoy/Desktop/PROYECTOS/Open Mat Timer"
+npm install
 npm run dev
 ```
 
-Abrí [http://localhost:3000](http://localhost:3000) en el navegador.
+Luego abrí **manualmente** [http://localhost:3000](http://localhost:3000) (Safari, Chrome, etc.).
+
+En macOS, para que intente abrir el navegador cuando el servidor esté listo:
+
+```bash
+npm run dev:open
+```
+
+> **Nota:** `npm start` es solo para producción; antes hay que correr `npm run build`. Para probar en tu Mac usá `npm run dev`.
 
 ## Comprobaciones
 
@@ -31,9 +43,17 @@ npm run build
 
 ## Uso
 
-1. Definí **rondas**, duración de **ronda** (segundos) y **descanso** (segundos). Con descanso en `0` no hay pausas entre rondas.
-2. Antes de iniciar se muestra el **tiempo total** de la sesión.
-3. Usá **Iniciar**, **Pausar**, **Reanudar** y **Reiniciar**. La sesión termina automáticamente al finalizar la última ronda.
+1. En **/** (panel de control): elegí un **preset** Guetho-style o editá rondas, duración y descanso.
+2. Antes de iniciar se muestra la **duración total** de la sesión.
+3. Iniciá la sesión desde el celular y abrí **Vista TV** (`/tv`) en la pantalla del gimnasio; el tiempo y la fase se mantienen al cambiar de ruta sin recargar.
+4. En TV usá **Pantalla completa**. Sonidos de inicio/fin de ronda se silencian con **Sonido on/off** (la pausa no reproduce el inicio otra vez).
+
+## Rutas
+
+| Ruta | Uso |
+|------|-----|
+| `/` | Presets, configuración táctil, controles |
+| `/tv` | Display grande 16:9 para TV |
 
 ### Ejemplo de prueba manual
 
