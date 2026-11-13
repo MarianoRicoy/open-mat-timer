@@ -3,6 +3,7 @@ import {
   getRemoteSession,
   normalizeRoomCode,
 } from "@/lib/remote/session-store";
+import { normalizeLogoDataUrl } from "@/lib/logo";
 import type { SessionConfig } from "@/lib/timer";
 import type { SessionCommand } from "@/lib/remote/types";
 
@@ -42,6 +43,17 @@ function parseCommand(body: unknown): SessionCommand | null {
 
   if (type === "applyPreset" && typeof record.presetId === "string") {
     return { type: "applyPreset", presetId: record.presetId };
+  }
+
+  if (type === "setLogo" && "logoDataUrl" in record) {
+    const logoDataUrl =
+      record.logoDataUrl === null
+        ? null
+        : normalizeLogoDataUrl(record.logoDataUrl);
+    if (record.logoDataUrl !== null && logoDataUrl === null) {
+      return null;
+    }
+    return { type: "setLogo", logoDataUrl };
   }
 
   return null;

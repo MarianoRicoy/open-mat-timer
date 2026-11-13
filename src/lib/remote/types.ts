@@ -8,6 +8,7 @@ export interface RemoteSessionRecord {
   config: SessionConfig;
   state: TimerState;
   activePresetId: string | null;
+  logoDataUrl: string | null;
 }
 
 export type SessionCommand =
@@ -16,7 +17,8 @@ export type SessionCommand =
   | { type: "resume" }
   | { type: "reset" }
   | { type: "patchConfig"; partial: Partial<SessionConfig> }
-  | { type: "applyPreset"; presetId: string };
+  | { type: "applyPreset"; presetId: string }
+  | { type: "setLogo"; logoDataUrl: string | null };
 
 export interface SessionPayload {
   code: string;
@@ -25,5 +27,6 @@ export interface SessionPayload {
   config: SessionConfig;
   state: TimerState;
   activePresetId: string | null;
+  logoDataUrl: string | null;
   snapshot: TimerSnapshot;
 }

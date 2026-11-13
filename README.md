@@ -67,8 +67,12 @@ npm run build
 
 ### Verificación del control remoto
 
-- Verificado manualmente con **dos pestañas** del mismo navegador (vista TV + panel vinculado): inicio, pausa y recarga de la TV con `?room=CODIGO`.
-- **Pendiente:** prueba con **TV física** y **celular real** en la misma red Wi‑Fi.
+- Verificado manualmente con **dos pestañas** del mismo navegador (vista TV + panel vinculado): inicio, pausa, recarga de la TV con `?room=CODIGO`, y logo (cargar / reemplazar / quitar) sin pausar ni reiniciar el cronómetro.
+- **Pendiente:** prueba con **TV física** y **celular real** en la misma red Wi‑Fi (incluido el flujo de logo).
+
+### Logo en TV
+
+Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP (hasta 400 KB). Con sala vinculada, la TV actualiza el logo al instante y lo conserva al recargar (`GET /api/sessions/:code`). Cambiar el logo **no** afecta el estado del reloj.
 
 ### Ejemplo de prueba manual
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTimerContext } from "@/contexts/TimerProvider";
+import { AcademyLogoControl } from "@/components/AcademyLogoControl";
 import { RemotePairingPanel } from "@/components/RemotePairingPanel";
 import { computeTotalDurationMs, formatDurationMs } from "@/lib/timer";
 
@@ -95,6 +96,8 @@ export function ControlTimerView() {
       </header>
 
       <RemotePairingPanel variant="control" />
+
+      <AcademyLogoControl />
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 sm:p-5">
         <div className="mb-3 flex items-center justify-between gap-3">

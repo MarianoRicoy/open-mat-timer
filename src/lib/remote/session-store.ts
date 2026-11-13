@@ -11,6 +11,7 @@ import {
   type SessionConfig,
   type TimerState,
 } from "@/lib/timer";
+import { normalizeLogoDataUrl } from "@/lib/logo";
 import type { RemoteSessionRecord, SessionCommand, SessionPayload } from "./types";
 
 const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
@@ -74,6 +75,7 @@ function toPayload(session: RemoteSessionRecord, nowMs: number): SessionPayload 
     config: session.config,
     state,
     activePresetId: session.activePresetId,
+    logoDataUrl: session.logoDataUrl,
     snapshot: getTimerSnapshot({ ...state, config: session.config }, nowMs),
   };
 }
@@ -91,6 +93,7 @@ export function createRemoteSession(nowMs: number = Date.now()): SessionPayload 
     config,
     state: createTimerState(config),
     activePresetId: TRAINING_PRESETS[3]?.id ?? null,
+    logoDataUrl: null,
   };
 
   map.set(code, record);
@@ -134,6 +137,12 @@ export function applyRemoteSessionCommand(
   let nextPresetId = record.activePresetId;
 
   switch (command.type) {
+    case "setLogo": {
+      record.logoDataUrl = normalizeLogoDataUrl(command.logoDataUrl);
+      record.updatedAtMs = nowMs;
+      record.revision += 1;
+      return toPayload(record, nowMs);
+    }
     case "start":
       nextState = startTimer({ ...nextState, config: nextConfig }, nowMs);
       break;

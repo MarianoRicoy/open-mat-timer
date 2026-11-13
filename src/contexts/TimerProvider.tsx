@@ -29,6 +29,7 @@ import { normalizeRoomCode } from "@/lib/remote/session-store";
 import type { SessionPayload } from "@/lib/remote/types";
 import { playRoundEndSound, playRoundStartSound } from "@/lib/sounds";
 import { useRoomCode } from "@/hooks/useRoomCode";
+import { isValidLogoDataUrl } from "@/lib/logo";
 
 const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
   rounds: 5,
@@ -37,6 +38,7 @@ const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
 };
 
 const SOUNDS_MUTED_KEY = "open-mat-timer:sounds-muted";
+const LOCAL_LOGO_KEY = "open-mat-timer:logo";
 const REMOTE_POLL_MS = 400;
 
 function getPhaseSignature(snapshot: TimerSnapshot): string {
@@ -76,6 +78,8 @@ interface TimerContextValue {
   joinRoom: (code: string) => Promise<boolean>;
   leaveRoom: () => void;
   ensureHostRoom: () => Promise<string | null>;
+  logoDataUrl: string | null;
+  setLogo: (logoDataUrl: string | null) => void;
 }
 
 const TimerContext = createContext<TimerContextValue | null>(null);
@@ -93,12 +97,35 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
   const [soundsMuted, setSoundsMuted] = useState(false);
   const [remoteConnected, setRemoteConnected] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const previousPhaseRef = useRef<string>("idle");
+
+  useEffect(() => {
+    if (isRemoteMode) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem(LOCAL_LOGO_KEY);
+        if (stored && isValidLogoDataUrl(stored)) {
+          setLogoDataUrl(stored);
+        }
+      } catch {
+        /* ignore storage errors */
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isRemoteMode]);
 
   const syncFromPayload = useCallback((payload: SessionPayload) => {
     setConfig(payload.config);
     setState(payload.state);
     setActivePresetId(payload.activePresetId);
+    setLogoDataUrl(payload.logoDataUrl);
     setNowMs(payload.serverNowMs);
     setRemoteConnected(true);
     setRemoteError(null);
@@ -332,6 +359,31 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
     previousPhaseRef.current = "idle";
   }, [config, isRemoteMode, sendRemoteCommand]);
 
+  const setLogo = useCallback(
+    (nextLogo: string | null) => {
+      if (nextLogo !== null && !isValidLogoDataUrl(nextLogo)) {
+        return;
+      }
+
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "setLogo", logoDataUrl: nextLogo });
+        return;
+      }
+
+      setLogoDataUrl(nextLogo);
+      try {
+        if (nextLogo) {
+          window.localStorage.setItem(LOCAL_LOGO_KEY, nextLogo);
+        } else {
+          window.localStorage.removeItem(LOCAL_LOGO_KEY);
+        }
+      } catch {
+        /* ignore storage errors */
+      }
+    },
+    [isRemoteMode, sendRemoteCommand],
+  );
+
   const toggleSoundsMuted = useCallback(() => {
     setSoundsMuted((previous) => {
       const next = !previous;
@@ -420,6 +472,8 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       joinRoom,
       leaveRoom,
       ensureHostRoom,
+      logoDataUrl,
+      setLogo,
     }),
     [
       config,
@@ -441,6 +495,8 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       joinRoom,
       leaveRoom,
       ensureHostRoom,
+      logoDataUrl,
+      setLogo,
     ],
   );
 

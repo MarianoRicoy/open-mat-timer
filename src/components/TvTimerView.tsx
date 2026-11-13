@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import { useTimerContext } from "@/contexts/TimerProvider";
 import { RemotePairingPanel } from "@/components/RemotePairingPanel";
+import { TvAcademyLogo } from "@/components/TvAcademyLogo";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { formatDurationMs } from "@/lib/timer";
 
@@ -28,7 +29,7 @@ function phaseTitle(
 
 export function TvTimerView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { config, snapshot, roomCode } = useTimerContext();
+  const { config, snapshot, roomCode, logoDataUrl } = useTimerContext();
   const { isFullscreen, toggle } = useFullscreen<HTMLDivElement>();
   const controlHref = roomCode ? `/?room=${roomCode}` : "/";
 
@@ -64,9 +65,13 @@ export function TvTimerView() {
         >
           Control
         </Link>
-        <p className="text-xs font-semibold uppercase tracking-[0.45em] text-zinc-500 sm:text-sm">
-          Open Mat · TV
-        </p>
+        {logoDataUrl ? (
+          <TvAcademyLogo logoDataUrl={logoDataUrl} compact />
+        ) : (
+          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-zinc-500 sm:text-sm">
+            Open Mat · TV
+          </p>
+        )}
         <button
           type="button"
           onClick={() => void toggle(containerRef.current)}
@@ -79,6 +84,9 @@ export function TvTimerView() {
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-16 pt-4 sm:px-10">
         {!isFullscreen && <RemotePairingPanel variant="tv" />}
         <div className="flex aspect-video w-full max-w-[1600px] flex-col items-center justify-center rounded-2xl border border-zinc-900/80 bg-zinc-950/40 px-4 py-8 sm:px-12 sm:py-10">
+          <div className="mb-4 flex min-h-[3.5rem] items-center justify-center">
+            <TvAcademyLogo logoDataUrl={logoDataUrl} />
+          </div>
           <p
             className={`text-[clamp(1.25rem,3.5vw,2.5rem)] font-bold uppercase tracking-[0.35em] ${accent}`}
           >

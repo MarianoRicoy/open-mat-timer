@@ -47,4 +47,37 @@ describe("remote session store", () => {
     expect(tick?.snapshot.phase?.kind).toBe("round");
     expect(tick?.snapshot.phaseRemainingMs).toBeLessThanOrEqual(3_000);
   });
+
+  it("updates logo without changing timer status", () => {
+    clearRemoteSessions();
+    const { code } = createRemoteSession(0);
+    const logo =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    applyRemoteSessionCommand(code, { type: "start" }, 1_000);
+    const beforePause = applyRemoteSessionCommand(code, { type: "pause" }, 2_000);
+    const afterLogo = applyRemoteSessionCommand(
+      code,
+      { type: "setLogo", logoDataUrl: logo },
+      2_500,
+    );
+    const reloaded = getRemoteSession(code, 3_000);
+
+    expect(beforePause?.snapshot.status).toBe("paused");
+    expect(afterLogo?.snapshot.status).toBe("paused");
+    expect(afterLogo?.logoDataUrl).toBe(logo);
+    expect(reloaded?.logoDataUrl).toBe(logo);
+    expect(reloaded?.snapshot.status).toBe("paused");
+    expect(reloaded?.snapshot.phaseRemainingMs).toBe(
+      beforePause?.snapshot.phaseRemainingMs,
+    );
+
+    const cleared = applyRemoteSessionCommand(
+      code,
+      { type: "setLogo", logoDataUrl: null },
+      3_500,
+    );
+    expect(cleared?.logoDataUrl).toBeNull();
+    expect(cleared?.snapshot.status).toBe("paused");
+  });
 });
