@@ -9,6 +9,12 @@ export interface TrainingPreset {
 
 export const TRAINING_PRESETS: TrainingPreset[] = [
   {
+    id: "test-25s",
+    name: "Prueba 25s",
+    subtitle: "1 ronda · 25 s (test)",
+    config: { rounds: 1, roundDurationSec: 25, restDurationSec: 0 },
+  },
+  {
     id: "guetho-5",
     name: "5 min",
     subtitle: "1 ronda continua",

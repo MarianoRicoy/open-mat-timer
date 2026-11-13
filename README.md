@@ -14,7 +14,12 @@ Cronómetro por rondas para academias de jiujitsu y MMA: el coach configura en e
 
 El uso normal en el tatami **no** debe depender de una Mac o PC encendida.
 
-**Este repositorio no es esa app todavía.** Es un **prototipo web** que sirve para probar el motor, el diseño del panel y la vista TV en la red local. La hoja de ruta hacia apps nativas y TV sin PC está en [`docs/product-roadmap.md`](docs/product-roadmap.md).
+**Este repositorio no es esa app todavía.** Incluye:
+
+1. **Prototipo web** (Next.js) — panel + TV en LAN. Ver abajo.
+2. **App móvil v0.1** (`mobile/`) — Capacitor + Vite, cronómetro **local offline** (sin salas ni servidor). Instalación: [`docs/mobile-install.md`](docs/mobile-install.md). Verificación: [`docs/mobile-verification.md`](docs/mobile-verification.md).
+
+La hoja de ruta hacia tiendas y Chromecast: [`docs/product-roadmap.md`](docs/product-roadmap.md).
 
 ---
 
@@ -114,8 +119,23 @@ Producción del prototipo: `npm run build` y luego `npm run start -- --hostname 
 ```bash
 npm run lint
 npm run test
-npm run build
+npm run build          # web
+npm run mobile:install # primera vez
+npm run mobile:build   # app móvil
+npm run build:all      # ambos
 ```
+
+## App móvil (v0.1 local)
+
+```bash
+npm run mobile:install
+npm run mobile:build
+cd mobile && npx cap sync
+npx cap open ios       # requiere Xcode + CocoaPods
+npx cap open android   # requiere Android Studio
+```
+
+Sin red: tras instalar, la app **no llama a internet** para el cronómetro. Motor y presets en `src/lib/` (compartidos con la web).
 
 ## Uso del prototipo web
 
