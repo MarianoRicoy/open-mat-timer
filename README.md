@@ -72,7 +72,7 @@ npm run build
 
 ### Logo en TV
 
-Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP (hasta 400 KB). En la vista TV el logo va **centrado arriba del reloj** (zona ~25 % alto × ~55 % ancho del marco 16:9, `object-contain`). Con sala vinculada, la TV actualiza al instante y conserva al recargar. Cambiar el logo **no** afecta el reloj.
+Desde el panel, sección **Logo en TV**: subí PNG/JPG/WebP/SVG (se comprime en el cliente). En la vista TV el logo va **arriba del bloque reloj** (~38 % alto × ~78 % ancho del marco 16:9). Usá el **slider Zoom en TV** si el archivo trae margen negro opaco o transparente; se sincroniza con la sala. La línea de estado es `RONDA n / total` o `DESCANSO n / total` justo encima del cronómetro. Cambiar el logo **no** afecta el reloj.
 
 **Verificación vista TV (navegador Mac):** composición revisada a **1280×720** y **1920×1080** (listo, ronda, descanso) con logo cuadrado y horizontal de prueba; sincronización del logo con dos pestañas. **Pendiente:** validación en **TV física** y celular real.
 

@@ -80,4 +80,18 @@ describe("remote session store", () => {
     expect(cleared?.logoDataUrl).toBeNull();
     expect(cleared?.snapshot.status).toBe("paused");
   });
+
+  it("updates logo zoom without touching timer state", () => {
+    clearRemoteSessions();
+    const { code } = createRemoteSession(0);
+
+    const afterZoom = applyRemoteSessionCommand(
+      code,
+      { type: "setLogoZoom", zoom: 2.25 },
+      1_000,
+    );
+
+    expect(afterZoom?.logoZoom).toBe(2.25);
+    expect(afterZoom?.snapshot.status).toBe("idle");
+  });
 });

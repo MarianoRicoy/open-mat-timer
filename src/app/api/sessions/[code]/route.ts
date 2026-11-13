@@ -4,6 +4,7 @@ import {
   normalizeRoomCode,
 } from "@/lib/remote/session-store";
 import { normalizeLogoDataUrl } from "@/lib/logo";
+import { normalizeLogoZoom } from "@/lib/logo-zoom";
 import type { SessionConfig } from "@/lib/timer";
 import type { SessionCommand } from "@/lib/remote/types";
 
@@ -11,12 +12,23 @@ interface RouteContext {
   params: Promise<{ code: string }>;
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { code } = await context.params;
   const payload = getRemoteSession(normalizeRoomCode(code));
 
   if (!payload) {
     return Response.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  const revisionParam = new URL(request.url).searchParams.get("revision");
+  const clientRevision = revisionParam ? Number.parseInt(revisionParam, 10) : null;
+
+  if (
+    clientRevision !== null &&
+    !Number.isNaN(clientRevision) &&
+    clientRevision === payload.revision
+  ) {
+    return new Response(null, { status: 204 });
   }
 
   return Response.json(payload);
@@ -54,6 +66,10 @@ function parseCommand(body: unknown): SessionCommand | null {
       return null;
     }
     return { type: "setLogo", logoDataUrl };
+  }
+
+  if (type === "setLogoZoom" && typeof record.zoom === "number") {
+    return { type: "setLogoZoom", zoom: normalizeLogoZoom(record.zoom) };
   }
 
   return null;

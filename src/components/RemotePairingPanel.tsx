@@ -74,6 +74,9 @@ export function RemotePairingPanel({
             <p className="mt-1 text-xs text-emerald-300/80">
               {remoteConnected ? "Sincronizado con la TV" : "Reconectando…"}
             </p>
+            {remoteError && (
+              <p className="mt-2 text-xs text-amber-300">{remoteError}</p>
+            )}
           </div>
           <button
             type="button"
@@ -117,6 +120,13 @@ export function RemotePairingPanel({
             {isJoining ? "Vinculando…" : "Vincular"}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => void ensureHostRoom()}
+          className="mt-3 min-h-11 w-full rounded-xl border border-zinc-600 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 transition hover:border-zinc-400"
+        >
+          Crear sala nueva (sin TV)
+        </button>
         {joinError && <p className="mt-2 text-sm text-red-400">{joinError}</p>}
         <p className="mt-3 text-xs text-zinc-500">
           Sin vincular, el cronómetro funciona solo en este dispositivo (offline).

@@ -28,8 +28,12 @@ import { TRAINING_PRESETS, type TrainingPreset } from "@/lib/presets";
 import { normalizeRoomCode } from "@/lib/remote/session-store";
 import type { SessionPayload } from "@/lib/remote/types";
 import { playRoundEndSound, playRoundStartSound } from "@/lib/sounds";
+import { usePathname } from "next/navigation";
 import { useRoomCode } from "@/hooks/useRoomCode";
 import { isValidLogoDataUrl } from "@/lib/logo";
+import { DEFAULT_LOGO_ZOOM, clampLogoZoom } from "@/lib/logo-zoom";
+
+const SESSION_SYNC_CHANNEL = "open-mat-timer:session-sync";
 
 const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
   rounds: 5,
@@ -39,7 +43,21 @@ const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
 
 const SOUNDS_MUTED_KEY = "open-mat-timer:sounds-muted";
 const LOCAL_LOGO_KEY = "open-mat-timer:logo";
-const REMOTE_POLL_MS = 400;
+const LOCAL_LOGO_ZOOM_KEY = "open-mat-timer:logo-zoom";
+const REMOTE_POLL_MS_IDLE = 12_000;
+const REMOTE_POLL_MS_ACTIVE = 3_000;
+const REMOTE_POLL_MS_DONE = 8_000;
+const REMOTE_POLL_MS_HIDDEN = 15_000;
+
+function getRemotePollMs(status: TimerState["status"]): number {
+  if (status === "running" || status === "paused") {
+    return REMOTE_POLL_MS_ACTIVE;
+  }
+  if (status === "completed") {
+    return REMOTE_POLL_MS_DONE;
+  }
+  return REMOTE_POLL_MS_IDLE;
+}
 
 function getPhaseSignature(snapshot: TimerSnapshot): string {
   if (snapshot.status === "idle") {
@@ -79,12 +97,18 @@ interface TimerContextValue {
   leaveRoom: () => void;
   ensureHostRoom: () => Promise<string | null>;
   logoDataUrl: string | null;
-  setLogo: (logoDataUrl: string | null) => void;
+  logoZoom: number;
+  setLogo: (
+    logoDataUrl: string | null,
+  ) => Promise<{ ok: boolean; message?: string }>;
+  setLogoZoom: (zoom: number) => void;
 }
 
 const TimerContext = createContext<TimerContextValue | null>(null);
 
 function TimerProviderInner({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isTvClient = pathname === "/tv";
   const { roomCode, setRoomCode } = useRoomCode();
   const isRemoteMode = Boolean(roomCode);
 
@@ -98,18 +122,84 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
   const [remoteConnected, setRemoteConnected] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logoZoom, setLogoZoomState] = useState(DEFAULT_LOGO_ZOOM);
   const previousPhaseRef = useRef<string>("idle");
+  const remoteRevisionRef = useRef(0);
+  const timerStatusRef = useRef<TimerState["status"]>("idle");
+  const pollingRoomRef = useRef<string | null>(null);
+  const sessionSyncRef = useRef<BroadcastChannel | null>(null);
+
+  const syncFromPayload = useCallback((payload: SessionPayload) => {
+    remoteRevisionRef.current = payload.revision;
+    setConfig(payload.config);
+    setState(payload.state);
+    setActivePresetId(payload.activePresetId);
+    setLogoDataUrl(payload.logoDataUrl);
+    setLogoZoomState(payload.logoZoom);
+    setNowMs(payload.serverNowMs);
+    setRemoteConnected(true);
+    setRemoteError(null);
+
+    try {
+      sessionSyncRef.current?.postMessage({
+        roomCode: payload.code,
+        payload,
+      });
+    } catch {
+      /* ignore broadcast errors */
+    }
+  }, []);
 
   useEffect(() => {
-    if (isRemoteMode) {
+    if (!roomCode || typeof BroadcastChannel === "undefined") {
+      sessionSyncRef.current?.close();
+      sessionSyncRef.current = null;
       return;
     }
 
+    const channel = new BroadcastChannel(SESSION_SYNC_CHANNEL);
+    sessionSyncRef.current = channel;
+
+    channel.onmessage = (event: MessageEvent<{ roomCode: string; payload: SessionPayload }>) => {
+      const data = event.data;
+      if (!data?.payload || normalizeRoomCode(data.roomCode) !== roomCode) {
+        return;
+      }
+      if (data.payload.revision <= remoteRevisionRef.current) {
+        return;
+      }
+      remoteRevisionRef.current = data.payload.revision;
+      setConfig(data.payload.config);
+      setState(data.payload.state);
+      setActivePresetId(data.payload.activePresetId);
+      setLogoDataUrl(data.payload.logoDataUrl);
+      setLogoZoomState(data.payload.logoZoom);
+      setNowMs(data.payload.serverNowMs);
+      setRemoteConnected(true);
+      setRemoteError(null);
+    };
+
+    return () => {
+      channel.close();
+      if (sessionSyncRef.current === channel) {
+        sessionSyncRef.current = null;
+      }
+    };
+  }, [roomCode]);
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem(LOCAL_LOGO_KEY);
         if (stored && isValidLogoDataUrl(stored)) {
           setLogoDataUrl(stored);
+        }
+        const storedZoom = window.localStorage.getItem(LOCAL_LOGO_ZOOM_KEY);
+        if (storedZoom) {
+          const parsed = Number.parseFloat(storedZoom);
+          if (!Number.isNaN(parsed)) {
+            setLogoZoomState(clampLogoZoom(parsed));
+          }
         }
       } catch {
         /* ignore storage errors */
@@ -119,17 +209,11 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [isRemoteMode]);
-
-  const syncFromPayload = useCallback((payload: SessionPayload) => {
-    setConfig(payload.config);
-    setState(payload.state);
-    setActivePresetId(payload.activePresetId);
-    setLogoDataUrl(payload.logoDataUrl);
-    setNowMs(payload.serverNowMs);
-    setRemoteConnected(true);
-    setRemoteError(null);
   }, []);
+
+  useEffect(() => {
+    timerStatusRef.current = state.status;
+  }, [state.status]);
 
   const fetchRemoteSession = useCallback(async () => {
     if (!roomCode) {
@@ -137,12 +221,25 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await fetch(`/api/sessions/${roomCode}`, { cache: "no-store" });
+      const response = await fetch(
+        `/api/sessions/${roomCode}?revision=${remoteRevisionRef.current}`,
+        { cache: "no-store" },
+      );
+
+      if (response.status === 204) {
+        return;
+      }
+
       if (!response.ok) {
         setRemoteConnected(false);
-        setRemoteError(
-          response.status === 404 ? "Sala no encontrada" : "Sin conexión con la sala",
-        );
+        if (response.status === 404) {
+          setRemoteError(
+            "Esta sala ya no existe (servidor reiniciado). Abrí /tv o creá un código nuevo.",
+          );
+          setRoomCode(null);
+        } else {
+          setRemoteError("Sin conexión con la sala");
+        }
         return;
       }
 
@@ -152,30 +249,116 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       setRemoteConnected(false);
       setRemoteError("Sin conexión con la sala");
     }
-  }, [roomCode, syncFromPayload]);
+  }, [roomCode, setRoomCode, syncFromPayload]);
 
   useEffect(() => {
     if (!roomCode) {
+      pollingRoomRef.current = null;
       return;
     }
 
-    const initialTimeout = window.setTimeout(() => {
-      void fetchRemoteSession();
-    }, 0);
-    const intervalId = window.setInterval(() => {
-      void fetchRemoteSession();
-    }, REMOTE_POLL_MS);
+    if (pollingRoomRef.current !== roomCode) {
+      remoteRevisionRef.current = 0;
+      pollingRoomRef.current = roomCode;
+    }
+
+    if (!isTvClient) {
+      let cancelled = false;
+
+      const refresh = () => {
+        if (!cancelled) {
+          void fetchRemoteSession();
+        }
+      };
+
+      refresh();
+
+      const onVisibility = () => {
+        if (document.visibilityState === "visible") {
+          refresh();
+        }
+      };
+
+      document.addEventListener("visibilitychange", onVisibility);
+      return () => {
+        cancelled = true;
+        document.removeEventListener("visibilitychange", onVisibility);
+      };
+    }
+
+    let cancelled = false;
+    let timeoutId = 0;
+
+    const scheduleNext = (delayMs: number) => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        void poll();
+      }, delayMs);
+    };
+
+    const poll = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      const hidden = document.visibilityState === "hidden";
+      if (hidden) {
+        scheduleNext(REMOTE_POLL_MS_HIDDEN);
+        return;
+      }
+
+      await fetchRemoteSession();
+
+      if (cancelled) {
+        return;
+      }
+
+      scheduleNext(getRemotePollMs(timerStatusRef.current));
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !cancelled) {
+        void fetchRemoteSession();
+        scheduleNext(getRemotePollMs(timerStatusRef.current));
+      }
+    };
+
+    void poll();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      window.clearTimeout(initialTimeout);
-      window.clearInterval(intervalId);
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [roomCode, fetchRemoteSession]);
+  }, [roomCode, fetchRemoteSession, isTvClient]);
+
+  const persistLocalLogo = useCallback((nextLogo: string | null) => {
+    try {
+      if (nextLogo) {
+        window.localStorage.setItem(LOCAL_LOGO_KEY, nextLogo);
+      } else {
+        window.localStorage.removeItem(LOCAL_LOGO_KEY);
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+  }, []);
+
+  const persistLocalLogoZoom = useCallback((zoom: number) => {
+    try {
+      window.localStorage.setItem(LOCAL_LOGO_ZOOM_KEY, String(clampLogoZoom(zoom)));
+    } catch {
+      /* ignore storage errors */
+    }
+  }, []);
 
   const sendRemoteCommand = useCallback(
-    async (body: Record<string, unknown>) => {
+    async (
+      body: Record<string, unknown>,
+    ): Promise<{ ok: true } | { ok: false; status: number }> => {
       if (!roomCode) {
-        return;
+        return { ok: false, status: 0 };
       }
 
       try {
@@ -186,14 +369,30 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
         });
 
         if (!response.ok) {
-          setRemoteError("No se pudo enviar el comando");
-          return;
+          if (response.status === 404) {
+            setRemoteError(
+              "Esta sala ya no existe (¿reiniciaste el servidor?). Abrí /tv de nuevo.",
+            );
+          } else {
+            setRemoteError(
+              body.type === "setLogo"
+                ? "No se pudo sincronizar el logo con la sala"
+                : "No se pudo enviar el comando",
+            );
+          }
+          return { ok: false, status: response.status };
         }
 
         const payload = (await response.json()) as SessionPayload;
         syncFromPayload(payload);
+        return { ok: true };
       } catch {
-        setRemoteError("No se pudo enviar el comando");
+        setRemoteError(
+          body.type === "setLogo"
+            ? "No se pudo sincronizar el logo con la sala"
+            : "No se pudo enviar el comando",
+        );
+        return { ok: false, status: 0 };
       }
     },
     [roomCode, syncFromPayload],
@@ -210,19 +409,17 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       const currentNow = Date.now();
       setNowMs(currentNow);
 
-      if (!isRemoteMode) {
-        setState((currentState) => {
-          if (currentState.status !== "running") {
-            return currentState;
-          }
-
-          if (isSessionComplete(currentState, currentNow)) {
-            return completeTimer(currentState);
-          }
-
+      setState((currentState) => {
+        if (currentState.status !== "running") {
           return currentState;
-        });
-      }
+        }
+
+        if (isSessionComplete(currentState, currentNow)) {
+          return completeTimer(currentState);
+        }
+
+        return currentState;
+      });
 
       frameId = requestAnimationFrame(tick);
     };
@@ -232,14 +429,14 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [state.status, isRemoteMode]);
+  }, [state.status]);
 
   const snapshot = useMemo(() => {
     const effectiveNow = nowMs > 0 ? nowMs : state.sessionStartMs ?? 0;
     return getTimerSnapshot({ ...state, config }, effectiveNow);
   }, [state, config, nowMs]);
 
-  const isEditable = state.status === "idle";
+  const isEditable = state.status === "idle" || state.status === "completed";
 
   useEffect(() => {
     const signature = getPhaseSignature(snapshot);
@@ -278,41 +475,58 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
     }
   }, [snapshot, soundsMuted]);
 
+  const applyConfigPatch = useCallback((partial: Partial<SessionConfig>) => {
+    setConfig((previous) => {
+      const next = { ...previous, ...partial };
+      setState((current) => {
+        if (current.status === "idle") {
+          return updateTimerConfig(current, next);
+        }
+        if (current.status === "completed") {
+          return createTimerState(next);
+        }
+        return current;
+      });
+      setActivePresetId(null);
+      return next;
+    });
+  }, []);
+
   const patchConfig = useCallback(
     (partial: Partial<SessionConfig>) => {
-      if (isRemoteMode) {
-        void sendRemoteCommand({ type: "patchConfig", partial });
+      if (!isEditable) {
         return;
       }
 
-      setConfig((previous) => {
-        const next = { ...previous, ...partial };
-        setState((current) => updateTimerConfig(current, next));
-        setActivePresetId(null);
-        return next;
-      });
+      applyConfigPatch(partial);
+
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "patchConfig", partial });
+      }
     },
-    [isRemoteMode, sendRemoteCommand],
+    [applyConfigPatch, isEditable, isRemoteMode, sendRemoteCommand],
   );
 
   const applyPreset = useCallback(
     (preset: TrainingPreset) => {
-      if (isRemoteMode) {
-        void sendRemoteCommand({ type: "applyPreset", presetId: preset.id });
+      if (!isEditable) {
         return;
       }
 
+      setConfig(preset.config);
+      setActivePresetId(preset.id);
       setState((current) => {
-        if (current.status !== "idle") {
-          return current;
+        if (current.status === "idle" || current.status === "completed") {
+          return createTimerState(preset.config);
         }
-
-        setConfig(preset.config);
-        setActivePresetId(preset.id);
-        return createTimerState(preset.config);
+        return current;
       });
+
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "applyPreset", presetId: preset.id });
+      }
     },
-    [isRemoteMode, sendRemoteCommand],
+    [isEditable, isRemoteMode, sendRemoteCommand],
   );
 
   const start = useCallback(() => {
@@ -360,28 +574,62 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
   }, [config, isRemoteMode, sendRemoteCommand]);
 
   const setLogo = useCallback(
-    (nextLogo: string | null) => {
+    async (
+      nextLogo: string | null,
+    ): Promise<{ ok: boolean; message?: string }> => {
       if (nextLogo !== null && !isValidLogoDataUrl(nextLogo)) {
-        return;
+        return { ok: false };
       }
+
+      const previousLogo = logoDataUrl;
+      setLogoDataUrl(nextLogo);
+
+      persistLocalLogo(nextLogo);
 
       if (isRemoteMode) {
-        void sendRemoteCommand({ type: "setLogo", logoDataUrl: nextLogo });
-        return;
+        const result = await sendRemoteCommand({
+          type: "setLogo",
+          logoDataUrl: nextLogo,
+        });
+        if (!result.ok) {
+          if (result.status === 404) {
+            setRoomCode(null);
+            setRemoteConnected(false);
+            return {
+              ok: true,
+              message:
+                "Logo guardado en este equipo. La sala expiró: abrí /tv o tocá «Crear sala nueva».",
+            };
+          }
+          setLogoDataUrl(previousLogo);
+          persistLocalLogo(previousLogo);
+          return { ok: false };
+        }
+        return { ok: true };
       }
 
-      setLogoDataUrl(nextLogo);
-      try {
-        if (nextLogo) {
-          window.localStorage.setItem(LOCAL_LOGO_KEY, nextLogo);
-        } else {
-          window.localStorage.removeItem(LOCAL_LOGO_KEY);
-        }
-      } catch {
-        /* ignore storage errors */
+      return { ok: true };
+    },
+    [
+      isRemoteMode,
+      logoDataUrl,
+      persistLocalLogo,
+      sendRemoteCommand,
+      setRoomCode,
+    ],
+  );
+
+  const setLogoZoom = useCallback(
+    (zoom: number) => {
+      const next = clampLogoZoom(zoom);
+      setLogoZoomState(next);
+      persistLocalLogoZoom(next);
+
+      if (isRemoteMode) {
+        void sendRemoteCommand({ type: "setLogoZoom", zoom: next });
       }
     },
-    [isRemoteMode, sendRemoteCommand],
+    [isRemoteMode, persistLocalLogoZoom, sendRemoteCommand],
   );
 
   const toggleSoundsMuted = useCallback(() => {
@@ -473,7 +721,9 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       leaveRoom,
       ensureHostRoom,
       logoDataUrl,
+      logoZoom,
       setLogo,
+      setLogoZoom,
     }),
     [
       config,
@@ -496,7 +746,9 @@ function TimerProviderInner({ children }: { children: ReactNode }) {
       leaveRoom,
       ensureHostRoom,
       logoDataUrl,
+      logoZoom,
       setLogo,
+      setLogoZoom,
     ],
   );
 

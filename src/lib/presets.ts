@@ -15,10 +15,10 @@ export const TRAINING_PRESETS: TrainingPreset[] = [
     config: { rounds: 1, roundDurationSec: 300, restDurationSec: 0 },
   },
   {
-    id: "guetho-6",
-    name: "6 min",
+    id: "guetho-8",
+    name: "8 min",
     subtitle: "1 ronda continua",
-    config: { rounds: 1, roundDurationSec: 360, restDurationSec: 0 },
+    config: { rounds: 1, roundDurationSec: 480, restDurationSec: 0 },
   },
   {
     id: "guetho-12",
@@ -27,10 +27,10 @@ export const TRAINING_PRESETS: TrainingPreset[] = [
     config: { rounds: 1, roundDurationSec: 720, restDurationSec: 0 },
   },
   {
-    id: "open-mat-5x5",
+    id: "open-mat-12x6",
     name: "Open mat",
-    subtitle: "5 rondas · 5 min · 1 min desc",
-    config: { rounds: 5, roundDurationSec: 300, restDurationSec: 60 },
+    subtitle: "12 rondas · 6 min · 1 min desc",
+    config: { rounds: 12, roundDurationSec: 360, restDurationSec: 60 },
   },
   {
     id: "comp-3x5",

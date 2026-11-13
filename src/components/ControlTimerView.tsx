@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useTimerContext } from "@/contexts/TimerProvider";
 import { AcademyLogoControl } from "@/components/AcademyLogoControl";
@@ -11,24 +12,55 @@ function ConfigField({
   value,
   disabled,
   onChange,
+  min = 1,
+  step = 1,
 }: {
   label: string;
   value: number;
   disabled: boolean;
   onChange: (value: number) => void;
+  min?: number;
+  step?: number;
 }) {
+  const parseInput = (raw: string): number | null => {
+    const parsed = step === 1 ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
+    if (Number.isNaN(parsed) || parsed < min) {
+      return null;
+    }
+    return parsed;
+  };
+
+  const [draft, setDraft] = useState(String(value));
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <label className="flex flex-col gap-1.5 text-sm text-zinc-400">
       <span className="font-medium">{label}</span>
       <input
         type="number"
         inputMode="numeric"
-        min={1}
-        value={value}
+        min={min}
+        step={step}
+        value={isFocused ? draft : String(value)}
         disabled={disabled}
+        onFocus={() => {
+          setDraft(String(value));
+          setIsFocused(true);
+        }}
         onChange={(event) => {
-          const parsed = Number.parseInt(event.target.value, 10);
-          if (!Number.isNaN(parsed) && parsed >= 1) {
+          setDraft(event.target.value);
+          const parsed = parseInput(event.target.value);
+          if (parsed !== null) {
+            onChange(parsed);
+          }
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+          const parsed = parseInput(draft);
+          if (parsed === null) {
+            return;
+          }
+          if (parsed !== value) {
             onChange(parsed);
           }
         }}
@@ -146,16 +178,20 @@ export function ControlTimerView() {
           onChange={(rounds) => patchConfig({ rounds })}
         />
         <ConfigField
-          label="Ronda (seg)"
-          value={config.roundDurationSec}
+          label="Ronda (min)"
+          value={config.roundDurationSec / 60}
           disabled={!isEditable}
-          onChange={(roundDurationSec) => patchConfig({ roundDurationSec })}
+          onChange={(minutes) => patchConfig({ roundDurationSec: minutes * 60 })}
         />
         <ConfigField
-          label="Descanso (seg)"
-          value={config.restDurationSec}
+          label="Descanso (min)"
+          value={config.restDurationSec / 60}
+          min={0}
+          step={0.5}
           disabled={!isEditable}
-          onChange={(restDurationSec) => patchConfig({ restDurationSec })}
+          onChange={(minutes) =>
+            patchConfig({ restDurationSec: Math.round(minutes * 60) })
+          }
         />
       </section>
 

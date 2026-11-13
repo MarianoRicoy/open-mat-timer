@@ -12,6 +12,7 @@ import {
   type TimerState,
 } from "@/lib/timer";
 import { normalizeLogoDataUrl } from "@/lib/logo";
+import { normalizeLogoZoom } from "@/lib/logo-zoom";
 import type { RemoteSessionRecord, SessionCommand, SessionPayload } from "./types";
 
 const DEFAULT_CONFIG: SessionConfig = TRAINING_PRESETS[3]?.config ?? {
@@ -76,6 +77,7 @@ function toPayload(session: RemoteSessionRecord, nowMs: number): SessionPayload 
     state,
     activePresetId: session.activePresetId,
     logoDataUrl: session.logoDataUrl,
+    logoZoom: session.logoZoom,
     snapshot: getTimerSnapshot({ ...state, config: session.config }, nowMs),
   };
 }
@@ -94,6 +96,7 @@ export function createRemoteSession(nowMs: number = Date.now()): SessionPayload 
     state: createTimerState(config),
     activePresetId: TRAINING_PRESETS[3]?.id ?? null,
     logoDataUrl: null,
+    logoZoom: 1,
   };
 
   map.set(code, record);
@@ -143,6 +146,12 @@ export function applyRemoteSessionCommand(
       record.revision += 1;
       return toPayload(record, nowMs);
     }
+    case "setLogoZoom": {
+      record.logoZoom = normalizeLogoZoom(command.zoom);
+      record.updatedAtMs = nowMs;
+      record.revision += 1;
+      return toPayload(record, nowMs);
+    }
     case "start":
       nextState = startTimer({ ...nextState, config: nextConfig }, nowMs);
       break;
@@ -156,16 +165,19 @@ export function applyRemoteSessionCommand(
       nextState = resetTimer(nextConfig);
       break;
     case "patchConfig": {
-      if (nextState.status !== "idle") {
+      if (nextState.status !== "idle" && nextState.status !== "completed") {
         break;
       }
       nextConfig = { ...nextConfig, ...command.partial };
-      nextState = updateTimerConfig({ ...nextState, config: nextConfig }, nextConfig);
+      nextState =
+        nextState.status === "completed"
+          ? createTimerState(nextConfig)
+          : updateTimerConfig({ ...nextState, config: nextConfig }, nextConfig);
       nextPresetId = null;
       break;
     }
     case "applyPreset": {
-      if (nextState.status !== "idle") {
+      if (nextState.status !== "idle" && nextState.status !== "completed") {
         break;
       }
       const preset = TRAINING_PRESETS.find((item) => item.id === command.presetId);

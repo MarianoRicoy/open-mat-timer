@@ -9,6 +9,7 @@ export interface RemoteSessionRecord {
   state: TimerState;
   activePresetId: string | null;
   logoDataUrl: string | null;
+  logoZoom: number;
 }
 
 export type SessionCommand =
@@ -18,7 +19,8 @@ export type SessionCommand =
   | { type: "reset" }
   | { type: "patchConfig"; partial: Partial<SessionConfig> }
   | { type: "applyPreset"; presetId: string }
-  | { type: "setLogo"; logoDataUrl: string | null };
+  | { type: "setLogo"; logoDataUrl: string | null }
+  | { type: "setLogoZoom"; zoom: number };
 
 export interface SessionPayload {
   code: string;
@@ -28,5 +30,6 @@ export interface SessionPayload {
   state: TimerState;
   activePresetId: string | null;
   logoDataUrl: string | null;
+  logoZoom: number;
   snapshot: TimerSnapshot;
 }
