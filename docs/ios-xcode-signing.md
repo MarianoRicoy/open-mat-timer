@@ -2,6 +2,29 @@
 
 La app móvil vive en `mobile/`. El cronómetro y presets son los mismos que en la web (`src/lib/timer`, `src/lib/presets.ts`), incluido **Prueba 25s**.
 
+## Bloqueo actual en esta Mac (verificado)
+
+| Comprobación | Resultado |
+|--------------|-----------|
+| `/Applications/Xcode.app` | **No instalado** (solo Command Line Tools) |
+| `xcode-select -p` | `/Library/Developer/CommandLineTools` |
+| `npm run mobile:build` | **OK** |
+| `pod install` / `cap sync ios` | **Fallido** hasta tener Xcode |
+
+**Pasos que piden contraseña de administrador** (cuando Xcode ya esté en Aplicaciones):
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+Opcional si la licencia no se aceptó desde la app:
+
+```bash
+sudo xcodebuild -license accept
+```
+
+Abrir Xcode desde terminal después de instalar: `open -a Xcode`
+
 ## Qué hace falta en la Mac (una vez)
 
 | Herramienta | Estado típico | Cómo instalarlo |
@@ -75,4 +98,35 @@ Los beeps pueden **no sonar** justo al cambiar de fase con la pantalla bloqueada
 | No aparece el iPhone | Cable, confiar en el Mac, **Developer Mode** (iOS 16+) en Ajustes si Xcode lo pide |
 | Solo Command Line Tools | `xcode-select -p` debe ser `/Applications/Xcode.app/Contents/Developer` |
 
-Más contexto de instalación: [mobile-install.md](./mobile-install.md). Pruebas manuales: [mobile-verification.md](./mobile-verification.md).
+## Después de instalar Xcode (orden exacto)
+
+```bash
+cd "/Users/marianoricoy/Desktop/PROYECTOS/Open Mat Timer"
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer   # contraseña admin
+open -a Xcode   # primera vez: licencia + componentes si pide
+./scripts/prepare-ios.sh
+cd mobile && npx cap open ios
+```
+
+### En Xcode: Apple ID e iPhone
+
+1. **Xcode → Settings…** (⌘,) → pestaña **Accounts** → **+** → **Apple ID** → iniciá sesión.
+2. Barra superior: destino de ejecución → elegí tu **iPhone** (con cable USB, desbloqueado). Si no aparece: reconectá cable, tocá **Confiar** en el iPhone, en Xcode **Window → Devices and Simulators**.
+3. Proyecto **App** (ícono azul) → target **App** → **Signing & Capabilities**:
+   - **Automatically manage signing** ✓
+   - **Team**: tu nombre (Personal Team).
+4. **Product → Run** (⌘R). Primera vez en el iPhone: **Ajustes → General → VPN y gestión de dispositivos** → confiar.
+
+### Pruebas en el iPhone (anotá resultados en [mobile-verification.md](./mobile-verification.md))
+
+| Paso | Qué comprobar |
+|------|----------------|
+| Modo avión | Activalo antes de abrir la app (offline real). |
+| Preset **Prueba 25s** | Iniciá; debe terminar la ronda ~25 s después. |
+| Bloqueo | A mitad de ronda, bloqueá 10 s; al desbloquear el contador debe **recuperar** el tiempo correcto. |
+| Campanas | Con app en primer plano deberían sonar al cambiar fase; con pantalla bloqueada **pueden no sonar** en el instante del cambio. |
+| Persistencia | Matá la app, reabrí: logo/config deberían seguir (Preferences). |
+
+**Comprobado en iPhone en esta entrega:** nada — Xcode no estaba instalado; la instalación física queda pendiente tras los pasos de arriba.
+
+Más contexto: [mobile-install.md](./mobile-install.md).

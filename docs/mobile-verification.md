@@ -45,7 +45,15 @@ Fecha de esta entrega: entorno de desarrollo del agente (sin dispositivo físico
 | Pantalla bloqueada durante ronda | **El reloj al desbloquear es correcto**; los beeps **pueden no sonar** en el momento del cambio porque `requestAnimationFrame` y la app están suspendidas |
 | App vuelve a primer plano | Próximos cambios de fase vuelven a sonar si no está muteado |
 
-**Resultado en simulador/dispositivo real del agente:** no ejecutado en hardware del usuario. Documentá acá tu resultado:
+**Comprobado en la Mac (entrega actual, post-`5faef24`):**
+
+- [x] `npm run mobile:build` / web bundle en `mobile/dist` — OK
+- [x] Scaffold `mobile/ios` + `App.xcworkspace` presente localmente
+- [ ] Xcode.app instalado — **NO**
+- [ ] `pod install` / `./scripts/prepare-ios.sh` completo — **bloqueado por Xcode**
+- [ ] `npx cap open ios` + Run en iPhone — **pendiente**
+
+**Resultado en iPhone del usuario:** pendiente hasta instalar Xcode. Documentá acá cuando pruebes:
 
 - [ ] iPhone físico: tiempo tras bloqueo — OK / falló
 - [ ] iPhone: beep en background — sonó / no sonó
