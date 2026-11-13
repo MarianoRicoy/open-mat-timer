@@ -2,6 +2,18 @@
 
 Cronómetro web gratuito para academias de jiujitsu y MMA: configurá cantidad de rondas, duración de cada ronda y descanso entre ellas. El tiempo restante se calcula a partir del tiempo transcurrido real, sin acumular error por los intervalos del navegador.
 
+> **Estado: en desarrollo (pre‑v1).** El flujo principal funciona en red local, pero **todavía no es la versión definitiva**. Usalo en el tatami con precaución y esperá cambios.
+
+## Qué falta para la versión definitiva
+
+- **Pruebas en hardware real:** TV o proyector + celular en la misma Wi‑Fi (control remoto, logo, zoom y recarga de la vista TV).
+- **Despliegue estable:** hoy el uso previsto es `npm run dev` en una Mac/PC de la academia; falta un camino claro de **producción** (`npm run build` + `npm start` o hosting) con sesiones que sobrevivan reinicios del servidor.
+- **Persistencia de salas:** las sesiones remotas viven **solo en memoria** del proceso Node; si reiniciás el servidor, los códigos de sala dejan de existir.
+- **Pulido de UX:** presets, textos, sonidos y ajustes finos de la vista TV según feedback del tatami.
+- **Documentación operativa:** guía corta “día de entrenamiento” (IP fija, qué hacer si se cae el Wi‑Fi, etc.).
+
+Lo verificado hasta ahora es mayormente en **navegador de escritorio** (dos pestañas panel + TV). Las capturas de referencia de la vista TV están en `docs/verification/`.
+
 ## Requisitos
 
 - Node.js 20 o superior
