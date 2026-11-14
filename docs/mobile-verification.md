@@ -49,9 +49,9 @@ Fecha de esta entrega: entorno de desarrollo del agente (sin dispositivo físico
 
 - [x] `npm run mobile:build` / web bundle en `mobile/dist` — OK
 - [x] Scaffold `mobile/ios` + `App.xcworkspace` presente localmente
-- [ ] Xcode.app instalado — **NO**
-- [ ] `pod install` / `./scripts/prepare-ios.sh` completo — **bloqueado por Xcode**
-- [ ] `npx cap open ios` + Run en iPhone — **pendiente**
+- [x] Xcode.app instalado — OK (Xcode 27.x, `xcode-select` → Xcode.app)
+- [x] `pod install` / `./scripts/prepare-ios.sh` completo — OK
+- [ ] `npx cap open ios` + Run en iPhone — **siguiente paso en Xcode (firma + dispositivo)**
 
 **Resultado en iPhone del usuario:** pendiente hasta instalar Xcode. Documentá acá cuando pruebes:
 

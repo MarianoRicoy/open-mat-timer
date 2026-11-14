@@ -2,14 +2,14 @@
 
 La app móvil vive en `mobile/`. El cronómetro y presets son los mismos que en la web (`src/lib/timer`, `src/lib/presets.ts`), incluido **Prueba 25s**.
 
-## Bloqueo actual en esta Mac (verificado)
+## Estado del entorno (Mac)
 
 | Comprobación | Resultado |
 |--------------|-----------|
-| `/Applications/Xcode.app` | **No instalado** (solo Command Line Tools) |
-| `xcode-select -p` | `/Library/Developer/CommandLineTools` |
-| `npm run mobile:build` | **OK** |
-| `pod install` / `cap sync ios` | **Fallido** hasta tener Xcode |
+| `/Applications/Xcode.app` | Instalado |
+| `xcode-select -p` | Debe ser `/Applications/Xcode.app/Contents/Developer` |
+| `npm run mobile:build` + `./scripts/prepare-ios.sh` | OK cuando Xcode está configurado |
+| `pod install` | OK tras `prepare-ios` |
 
 **Pasos que piden contraseña de administrador** (cuando Xcode ya esté en Aplicaciones):
 
